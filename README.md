@@ -42,7 +42,7 @@ This guide provides a complete walkthrough for forking this repository, setting 
 
 1.  **Fork and Clone the Repository**:
     ```bash
-    git clone [https://github.com/your-username/duxboard.git](https://github.com/your-username/duxboard.git)
+    git clone https://github.com/Dux-Da-Dev/Duxboard.git
     cd duxboard
     ```
 

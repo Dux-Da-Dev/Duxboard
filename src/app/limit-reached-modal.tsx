@@ -26,7 +26,7 @@ export default function LimitReachedModal({ isOpen, onClose }: LimitReachedModal
                 <div className="p-4 bg-gray-100 dark:bg-gray-700 rounded-md">
                   <h4 className="font-semibold">Get Started with Self-Hosting</h4>
                   <p className="text-sm mt-2">
-                    <a href="https://github.com/your-repo/duxboard" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                    <a href="https://github.com/Dux-Da-Dev/Duxboard" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
                       Fork the repository on GitHub
                     </a> and follow the setup instructions in the README to deploy your own version for free.
                   </p>
