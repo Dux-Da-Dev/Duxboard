@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { setTutorialCompleted } from './actions'
 import WelcomeModal from './welcome-modal'
 import CongratulationsModal from './CongratulationsModal'
@@ -27,6 +28,7 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
   const [currentStep, setCurrentStep] = useState(0)
   const [showWelcome, setShowWelcome] = useState(false)
   const [showCongrats, setShowCongrats] = useState(false)
+  const router = useRouter()
 
   useEffect(() => {
     const savedStep = localStorage.getItem('tutorialStep');
@@ -51,8 +53,9 @@ export function TutorialProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('tutorialStep');
     if (markAsCompleted) {
       await setTutorialCompleted()
+      router.refresh()
     }
-  }, [])
+  }, [router])
 
   const startTutorial = useCallback(() => {
     setShowWelcome(false)

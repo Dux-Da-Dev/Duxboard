@@ -9,7 +9,7 @@ import UserMenu from "./user-menu"; // Import UserMenu
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Project Canvas",
+  title: "Duxboard",
   description: "A collaborative pinboard for teams.",
 };
 
