@@ -116,6 +116,9 @@ DECLARE
     instagram_instructions TEXT := 'A photorealistic and visually stunning image of [SUBJECT]. The style is minimalist and educational, with dramatic, high-contrast lighting and a clean, focused composition. The image must be a 1080x1350px vertical portrait.';
 
     tiktok_instructions TEXT := 'An energetic and vibrant vertical image of [SUBJECT], suitable for TikTok. The style is bold with a clear focal point, high-contrast colors, and dynamic lighting. The image must be in a 9:16 vertical format (1080x1920px).';
+
+    notes_instructions TEXT := 'Act as an expert AI research agent. Your goal is to generate a detailed and engaging article about a given subject, focusing on hidden and underappreciated facts and stories.';
+
 BEGIN
   -- Create the user''s public profile
   INSERT INTO public.profiles (id, full_name, avatar_url, role, theme)
@@ -128,6 +131,10 @@ BEGIN
   -- Insert the default TikTok instruction profile for the new user
   INSERT INTO public.model_instructions (user_id, profile_name, instructions)
   VALUES (NEW.id, 'Tiktok Image Default', tiktok_instructions);
+
+  -- Insert the default Notes Generation profile for the new user
+  INSERT INTO public.model_instructions (user_id, profile_name, instructions)
+  VALUES (NEW.id, 'Default Note Generation', notes_instructions);
 
   RETURN NEW;
 END;
