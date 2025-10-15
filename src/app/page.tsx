@@ -1,56 +1,93 @@
-import { createSupabaseServerClient as createClient } from '@/lib/supabase/server';
+'use client'
+
+import { useState, useEffect } from 'react';
+import { createSupabaseBrowserClient as createClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/database.types';
-import Board from './board';
+import dynamic from 'next/dynamic';
 import GoogleSignIn from './google-sign-in';
+import Loading from './loading';
+import { User } from '@supabase/supabase-js';
+
+const Board = dynamic(() => import('./board'), {
+  ssr: false,
+});
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type PinType = Database['public']['Tables']['pins']['Row'];
 type ConnectionType = Database['public']['Tables']['connections']['Row'];
 
-export default async function Home() {
+export default function Home() {
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [pins, setPins] = useState<PinType[]>([]);
+  const [connections, setConnections] = useState<ConnectionType[]>([]);
+  const [isLoading, setIsLoading] = useState(true); // Start in a loading state
   const supabase = createClient();
 
-  const { data: { user } } = await supabase.auth.getUser();
+  useEffect(() => {
+    // This listener is the key to fixing the issue.
+    // It will fire once on initial load and then again whenever the auth state changes.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
 
+        if (currentUser) {
+          // If a user is logged in, fetch their data.
+          const { data: boardId, error: rpcError } = await supabase.rpc(
+            'get_or_create_user_board',
+            { p_user_id: currentUser.id }
+          );
+
+          if (rpcError || !boardId) {
+            console.error('Could not get or create a board for this user.', rpcError);
+            setIsLoading(false);
+            return;
+          }
+
+          const pinsPromise = supabase
+            .from('pins')
+            .select('*, scale')
+            .eq('board_id', boardId)
+            .eq('is_deleted', false)
+            .is('parent_pin_id', null);
+
+          const profilePromise = supabase.from('profiles').select('*').eq('id', currentUser.id).single();
+          const connectionsPromise = supabase.from('connections').select('*');
+
+          const [{ data: pinsData }, { data: profileData }, { data: connectionsData }] = await Promise.all([
+            pinsPromise,
+            profilePromise,
+            connectionsPromise,
+          ]);
+
+          setPins(pinsData ?? []);
+          setProfile(profileData);
+          setConnections(connectionsData ?? []);
+        }
+
+        // Data fetching is complete, or there is no user. Stop loading.
+        setIsLoading(false);
+      }
+    );
+
+    // Cleanup the subscription when the component unmounts
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  // Show a loading spinner while the initial auth check is happening
+  if (isLoading) {
+    return <Loading />;
+  }
+
+  // If not loading and no user, show the sign-in component
   if (!user) {
     return <GoogleSignIn />;
   }
 
-  // Call the new database function to get or create the board
-  const { data: boardId, error: rpcError } = await supabase.rpc(
-    'get_or_create_user_board',
-    { p_user_id: user.id }
-  );
-
-  if (rpcError || !boardId) {
-    console.error('Could not get or create a board for this user.', rpcError);
-    // You might want to render an error page here
-    return <div>Error loading board.</div>;
-  }
-
-  const pinsPromise = supabase
-    .from('pins')
-    .select('*, scale')
-    .eq('board_id', boardId)
-    .eq('is_deleted', false)
-    .is('parent_pin_id', null);
-  const profilePromise = supabase.from('profiles').select('*').eq('id', user.id).single();
-  const connectionsPromise = supabase.from('connections').select('*');
-
-  const [
-    { data: pinsData },
-    { data: profileData },
-    { data: connectionsData }
-  ] = await Promise.all([
-    pinsPromise,
-    profilePromise,
-    connectionsPromise,
-  ]);
-
-  const pins: PinType[] = pinsData ?? [];
-  const profile: Profile | null = profileData;
-  const connections: ConnectionType[] = connectionsData ?? [];
-
+  // If not loading and there is a user, show the board
   return (
     <main className="flex min-h-screen flex-col items-center justify-between">
       <Board

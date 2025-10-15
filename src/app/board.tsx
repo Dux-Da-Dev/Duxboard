@@ -65,14 +65,6 @@ export default function Board({ serverPins, serverConnections, user, profile }: 
   const boardRef = useRef<HTMLDivElement>(null)
   const { isActive: isTutorialActive, currentStep, completeStep, triggerWelcomeModal } = useTutorial()
 
-  useEffect(() => {
-    if (profile && !profile.has_completed_tutorial && !isTutorialActive && currentStep === 0) {
-      setTimeout(() => {
-        triggerWelcomeModal()
-      }, 500)
-    }
-  }, [profile, isTutorialActive, triggerWelcomeModal, currentStep])
-
   const { view, onMouseDown, onMouseUp, onMouseMove, onHomeButton } = useViewManager(boardRef, initialPins);
 
   const pinsMap = useMemo(() => new Map(pins.map(pin => [pin.id, pin])), [pins]);

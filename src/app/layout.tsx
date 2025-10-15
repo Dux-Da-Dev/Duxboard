@@ -36,7 +36,7 @@ export default async function RootLayout({
     <html lang="en" className={theme} style={{ colorScheme: theme }}>
       <body className={inter.className}>
         <ThemeProvider initialTheme={theme as 'light' | 'dark'}>
-          <TutorialProvider>
+          <TutorialProvider profile={profile}>
             {user && <UserMenu user={user} profile={profile} />}
             {children}
           </TutorialProvider>
