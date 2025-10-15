@@ -32,42 +32,54 @@ export default function Home() {
         const currentUser = session?.user ?? null;
         setUser(currentUser);
 
-        if (currentUser) {
-          // If a user is logged in, fetch their data.
-          const { data: boardId, error: rpcError } = await supabase.rpc(
-            'get_or_create_user_board',
-            { p_user_id: currentUser.id }
-          );
+        try {
+          if (currentUser) {
+            // If a user is logged in, fetch their data.
+            const { data: boardId, error: rpcError } = await supabase.rpc(
+              'get_or_create_user_board',
+              { p_user_id: currentUser.id }
+            );
 
-          if (rpcError || !boardId) {
-            console.error('Could not get or create a board for this user.', rpcError);
-            setIsLoading(false);
-            return;
+            if (rpcError || !boardId) {
+              console.error('Could not get or create a board for this user.', rpcError);
+            } else {
+              const pinsPromise = supabase
+                .from('pins')
+                .select('*, scale')
+                .eq('board_id', boardId)
+                .eq('is_deleted', false)
+                .is('parent_pin_id', null);
+
+              const profilePromise = supabase.from('profiles').select('*').eq('id', currentUser.id).single();
+              const connectionsPromise = supabase.from('connections').select('*');
+
+              const [pinsResult, profileResult, connectionsResult] = await Promise.all([
+                pinsPromise,
+                profilePromise,
+                connectionsPromise,
+              ]);
+
+              if (pinsResult.error) {
+                console.error('Error fetching pins:', pinsResult.error);
+              }
+              if (profileResult.error) {
+                console.error('Error fetching profile:', profileResult.error);
+              }
+              if (connectionsResult.error) {
+                console.error('Error fetching connections:', connectionsResult.error);
+              }
+
+              setPins(pinsResult.data ?? []);
+              setProfile(profileResult.data);
+              setConnections(connectionsResult.data ?? []);
+            }
           }
-
-          const pinsPromise = supabase
-            .from('pins')
-            .select('*, scale')
-            .eq('board_id', boardId)
-            .eq('is_deleted', false)
-            .is('parent_pin_id', null);
-
-          const profilePromise = supabase.from('profiles').select('*').eq('id', currentUser.id).single();
-          const connectionsPromise = supabase.from('connections').select('*');
-
-          const [{ data: pinsData }, { data: profileData }, { data: connectionsData }] = await Promise.all([
-            pinsPromise,
-            profilePromise,
-            connectionsPromise,
-          ]);
-
-          setPins(pinsData ?? []);
-          setProfile(profileData);
-          setConnections(connectionsData ?? []);
+        } catch (error) {
+          console.error('An unexpected error occurred during data fetching:', error);
+        } finally {
+          // Data fetching is complete, or there is no user. Stop loading.
+          setIsLoading(false);
         }
-
-        // Data fetching is complete, or there is no user. Stop loading.
-        setIsLoading(false);
       }
     );
 
