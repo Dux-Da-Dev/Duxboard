@@ -3,8 +3,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "./theme-provider";
 import { createSupabaseServerClient as createClient } from "@/lib/supabase/server";
-import { TutorialProvider } from "./tutorial-provider"; // Import TutorialProvider
-import UserMenu from "./user-menu"; // Import UserMenu
+import { TutorialProvider } from "./tutorial-provider";
+import Header from "./header"; // Import the new Header component
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -36,8 +36,8 @@ export default async function RootLayout({
     <html lang="en" className={theme} style={{ colorScheme: theme }}>
       <body className={inter.className}>
         <ThemeProvider initialTheme={theme as 'light' | 'dark'}>
-          <TutorialProvider>
-            {user && <UserMenu user={user} profile={profile} />}
+          <TutorialProvider profile={profile}>
+            <Header /> {/* Use the Header client component here */}
             {children}
           </TutorialProvider>
         </ThemeProvider>
