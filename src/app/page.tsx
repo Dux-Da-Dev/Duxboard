@@ -1,11 +1,11 @@
-'use client'
+'use client' // <-- Convert to a Client Component
 
 import { useState, useEffect } from 'react';
 import { createSupabaseBrowserClient as createClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/database.types';
 import dynamic from 'next/dynamic';
 import GoogleSignIn from './google-sign-in';
-import Loading from './loading';
+import Loading from './loading'; // Import the loading component
 import { User } from '@supabase/supabase-js';
 
 const Board = dynamic(() => import('./board'), {
@@ -21,84 +21,61 @@ export default function Home() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [pins, setPins] = useState<PinType[]>([]);
   const [connections, setConnections] = useState<ConnectionType[]>([]);
-  const [isLoading, setIsLoading] = useState(true); // Start in a loading state
+  const [isLoading, setIsLoading] = useState(true);
   const supabase = createClient();
 
   useEffect(() => {
-    // This listener correctly handles the auth state on load and any subsequent changes.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        const currentUser = session?.user ?? null;
-        setUser(currentUser);
+    const checkUserAndFetchData = async () => {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      setUser(currentUser);
 
-        if (currentUser) {
-          try {
-            // If a user is logged in, fetch all their data.
-            const { data: boardId, error: rpcError } = await supabase.rpc(
-              'get_or_create_user_board',
-              { p_user_id: currentUser.id }
-            );
+      if (currentUser) {
+        // Call the new database function to get or create the board
+        const { data: boardId, error: rpcError } = await supabase.rpc(
+          'get_or_create_user_board',
+          { p_user_id: currentUser.id }
+        );
 
-            if (rpcError) throw rpcError;
-
-            const pinsPromise = supabase
-              .from('pins')
-              .select('*, scale')
-              .eq('board_id', boardId)
-              .eq('is_deleted', false)
-              .is('parent_pin_id', null);
-
-            const profilePromise = supabase.from('profiles').select('*').eq('id', currentUser.id).single();
-            const connectionsPromise = supabase.from('connections').select('*');
-
-            const [
-                { data: pinsData, error: pinsError },
-                { data: profileData, error: profileError },
-                { data: connectionsData, error: connectionsError }
-            ] = await Promise.all([
-              pinsPromise,
-              profilePromise,
-              connectionsPromise,
-            ]);
-
-            if (pinsError) throw pinsError;
-            if (profileError) throw profileError;
-            if (connectionsError) throw connectionsError;
-
-            setPins(pinsData ?? []);
-            setProfile(profileData);
-            setConnections(connectionsData ?? []);
-
-          } catch (error) {
-            console.error("Error fetching user data:", error);
-          } finally {
-            // Set loading to false only after all data fetching is complete or has failed.
-            setIsLoading(false);
-          }
-        } else {
-          // If there is no user, we are also done loading.
+        if (rpcError || !boardId) {
+          console.error('Could not get or create a board for this user.', rpcError);
           setIsLoading(false);
+          return; // Stop if we couldn't get a board
         }
-      }
-    );
 
-    // Cleanup the subscription when the component unmounts
-    return () => {
-      subscription.unsubscribe();
+        const pinsPromise = supabase
+          .from('pins')
+          .select('*, scale')
+          .eq('board_id', boardId)
+          .eq('is_deleted', false)
+          .is('parent_pin_id', null);
+        const profilePromise = supabase.from('profiles').select('*').eq('id', currentUser.id).single();
+        const connectionsPromise = supabase.from('connections').select('*');
+
+        const [{ data: pinsData }, { data: profileData }, { data: connectionsData }] = await Promise.all([
+          pinsPromise,
+          profilePromise,
+          connectionsPromise,
+        ]);
+
+        setPins(pinsData ?? []);
+        setProfile(profileData);
+        setConnections(connectionsData ?? []);
+      }
+
+      setIsLoading(false);
     };
+
+    checkUserAndFetchData();
   }, [supabase]);
 
-  // Show a loading spinner while the initial auth check and data fetch are happening
   if (isLoading) {
     return <Loading />;
   }
 
-  // If not loading and no user, show the sign-in component
   if (!user) {
     return <GoogleSignIn />;
   }
 
-  // If not loading and there is a user, show the board
   return (
     <main className="flex min-h-screen flex-col items-center justify-between">
       <Board
