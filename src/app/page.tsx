@@ -24,69 +24,57 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true); // Start in a loading state
   const supabase = createClient();
 
-  useEffect(() => {
-    // This listener is the key to fixing the issue.
-    // It will fire once on initial load and then again whenever the auth state changes.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        const currentUser = session?.user ?? null;
+useEffect(() => {
+    const checkUserAndFetchData = async () => {
+      try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
         setUser(currentUser);
 
         if (currentUser) {
-          try {
-            // If a user is logged in, fetch all their data.
-            const { data: boardId, error: rpcError } = await supabase.rpc(
-              'get_or_create_user_board',
-              { p_user_id: currentUser.id }
-            );
+          const { data: boardId, error: rpcError } = await supabase.rpc(
+            'get_or_create_user_board',
+            { p_user_id: currentUser.id }
+          );
 
-            if (rpcError) throw rpcError;
+          if (rpcError) throw rpcError;
 
-            const pinsPromise = supabase
-              .from('pins')
-              .select('*, scale')
-              .eq('board_id', boardId)
-              .eq('is_deleted', false)
-              .is('parent_pin_id', null);
+          const pinsPromise = supabase
+            .from('pins')
+            .select('*, scale')
+            .eq('board_id', boardId)
+            .eq('is_deleted', false)
+            .is('parent_pin_id', null);
+          const profilePromise = supabase.from('profiles').select('*').eq('id', currentUser.id).single();
+          const connectionsPromise = supabase.from('connections').select('*');
 
-            const profilePromise = supabase.from('profiles').select('*').eq('id', currentUser.id).single();
-            const connectionsPromise = supabase.from('connections').select('*');
+          const [
+              { data: pinsData, error: pinsError },
+              { data: profileData, error: profileError },
+              { data: connectionsData, error: connectionsError }
+          ] = await Promise.all([
+            pinsPromise,
+            profilePromise,
+            connectionsPromise,
+          ]);
 
-            const [
-                { data: pinsData, error: pinsError },
-                { data: profileData, error: profileError },
-                { data: connectionsData, error: connectionsError }
-            ] = await Promise.all([
-              pinsPromise,
-              profilePromise,
-              connectionsPromise,
-            ]);
+          if (pinsError) throw pinsError;
+          if (profileError) throw profileError;
+          if (connectionsError) throw connectionsError;
 
-            if (pinsError) throw pinsError;
-            if (profileError) throw profileError;
-            if (connectionsError) throw connectionsError;
-
-            setPins(pinsData ?? []);
-            setProfile(profileData);
-            setConnections(connectionsData ?? []);
-
-          } catch (error) {
-            console.error("Error fetching user data:", error);
-          } finally {
-            // Set loading to false only after all data fetching is complete or has failed.
-            setIsLoading(false);
-          }
-        } else {
-          // If there is no user, we are also done loading.
-          setIsLoading(false);
+          setPins(pinsData ?? []);
+          setProfile(profileData);
+          setConnections(connectionsData ?? []);
         }
+      } catch (error) {
+          console.error("Failed to fetch initial board data:", error);
+          // You might want to show an error message to the user here
+      } finally {
+          // This block will always run, ensuring the loading state is removed.
+          setIsLoading(false);
       }
-    );
-
-    // Cleanup the subscription when the component unmounts
-    return () => {
-      subscription.unsubscribe();
     };
+
+    checkUserAndFetchData();
   }, [supabase]);
 
   // Show a loading spinner while the initial auth check and data fetch are happening
