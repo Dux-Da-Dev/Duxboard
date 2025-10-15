@@ -63,7 +63,7 @@ export default function Board({ serverPins, serverConnections, user, profile }: 
   const [showZoomControls, setShowZoomControls] = useState(false)
   const supabase = createClient()
   const boardRef = useRef<HTMLDivElement>(null)
-  const { isActive: isTutorialActive, currentStep, completeStep, triggerWelcomeModal } = useTutorial()
+  const { isActive: isTutorialActive, currentStep, completeStep } = useTutorial()
 
   const { view, onMouseDown, onMouseUp, onMouseMove, onHomeButton } = useViewManager(boardRef, initialPins);
 
@@ -162,7 +162,7 @@ export default function Board({ serverPins, serverConnections, user, profile }: 
       supabase.removeChannel(pinChannel)
       supabase.removeChannel(connectionChannel)
     }
-  }, [supabase])
+  }, [supabase, selectedPin?.id])
 
 
 const handlePinClick = async (pin: PinType) => {
