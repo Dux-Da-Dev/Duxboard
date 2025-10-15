@@ -25,59 +25,58 @@ export default function Home() {
   const supabase = createClient();
 
   useEffect(() => {
-    // This listener is the key to fixing the issue.
-    // It will fire once on initial load and then again whenever the auth state changes.
+    // This listener correctly handles the auth state on load and any subsequent changes.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         const currentUser = session?.user ?? null;
         setUser(currentUser);
 
-        try {
-          if (currentUser) {
-            // If a user is logged in, fetch their data.
+        if (currentUser) {
+          try {
+            // If a user is logged in, fetch all their data.
             const { data: boardId, error: rpcError } = await supabase.rpc(
               'get_or_create_user_board',
               { p_user_id: currentUser.id }
             );
 
-            if (rpcError || !boardId) {
-              console.error('Could not get or create a board for this user.', rpcError);
-            } else {
-              const pinsPromise = supabase
-                .from('pins')
-                .select('*, scale')
-                .eq('board_id', boardId)
-                .eq('is_deleted', false)
-                .is('parent_pin_id', null);
+            if (rpcError) throw rpcError;
 
-              const profilePromise = supabase.from('profiles').select('*').eq('id', currentUser.id).single();
-              const connectionsPromise = supabase.from('connections').select('*');
+            const pinsPromise = supabase
+              .from('pins')
+              .select('*, scale')
+              .eq('board_id', boardId)
+              .eq('is_deleted', false)
+              .is('parent_pin_id', null);
 
-              const [pinsResult, profileResult, connectionsResult] = await Promise.all([
-                pinsPromise,
-                profilePromise,
-                connectionsPromise,
-              ]);
+            const profilePromise = supabase.from('profiles').select('*').eq('id', currentUser.id).single();
+            const connectionsPromise = supabase.from('connections').select('*');
 
-              if (pinsResult.error) {
-                console.error('Error fetching pins:', pinsResult.error);
-              }
-              if (profileResult.error) {
-                console.error('Error fetching profile:', profileResult.error);
-              }
-              if (connectionsResult.error) {
-                console.error('Error fetching connections:', connectionsResult.error);
-              }
+            const [
+                { data: pinsData, error: pinsError },
+                { data: profileData, error: profileError },
+                { data: connectionsData, error: connectionsError }
+            ] = await Promise.all([
+              pinsPromise,
+              profilePromise,
+              connectionsPromise,
+            ]);
 
-              setPins(pinsResult.data ?? []);
-              setProfile(profileResult.data);
-              setConnections(connectionsResult.data ?? []);
-            }
+            if (pinsError) throw pinsError;
+            if (profileError) throw profileError;
+            if (connectionsError) throw connectionsError;
+
+            setPins(pinsData ?? []);
+            setProfile(profileData);
+            setConnections(connectionsData ?? []);
+
+          } catch (error) {
+            console.error("Error fetching user data:", error);
+          } finally {
+            // Set loading to false only after all data fetching is complete or has failed.
+            setIsLoading(false);
           }
-        } catch (error) {
-          console.error('An unexpected error occurred during data fetching:', error);
-        } finally {
-          // Data fetching is complete, or there is no user. Stop loading.
+        } else {
+          // If there is no user, we are also done loading.
           setIsLoading(false);
         }
       }
@@ -89,7 +88,7 @@ export default function Home() {
     };
   }, [supabase]);
 
-  // Show a loading spinner while the initial auth check is happening
+  // Show a loading spinner while the initial auth check and data fetch are happening
   if (isLoading) {
     return <Loading />;
   }
