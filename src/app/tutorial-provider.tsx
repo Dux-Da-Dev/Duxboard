@@ -40,6 +40,18 @@ export function TutorialProvider({ children, profile }: { children: ReactNode, p
     }
   }, [profile]);
 
+  useEffect(() => {
+    const savedStep = localStorage.getItem('tutorialStep');
+    if (savedStep) {
+      const step = parseInt(savedStep, 10);
+      if (step > 0) {
+        setIsActive(true);
+        setCurrentStep(step);
+        setShowWelcome(false);
+      }
+    }
+  }, []);
+
   const setStep = (step: number) => {
     localStorage.setItem('tutorialStep', step.toString());
     setCurrentStep(step);
