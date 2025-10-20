@@ -5,6 +5,7 @@ import { createSupabaseBrowserClient as createClient } from '@/lib/supabase/clie
 import type { Database } from '@/lib/database.types'
 import Pin from './pin'
 import PinDetailModal from './pin-detail-modal'
+import EditPinImageModal from './edit-pin-image-modal'
 import FloatingActionButton from './floating-action-button'
 import { createConnection, softDeletePin, updatePinPosition } from './actions'
 import type { User } from '@supabase/supabase-js'
@@ -58,6 +59,8 @@ export default function Board({ serverPins, serverConnections, user, profile }: 
   const [pins, setPins] = useState<PinType[]>(serverPins)
   const [connections, setConnections] = useState(serverConnections)
   const [selectedPin, setSelectedPin] = useState<PinType | null>(null)
+  const [pinToEditImage, setPinToEditImage] = useState<PinType | null>(null)
+  const [isEditImageModalOpen, setIsEditImageModalOpen] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
   const [startPin, setStartPin] = useState<PinType | null>(null)
   const [showZoomControls, setShowZoomControls] = useState(false)
@@ -208,6 +211,16 @@ const handlePinClick = async (pin: PinType) => {
     }
 };
 
+  const handleOpenEditImageModal = (pin: PinType) => {
+    setPinToEditImage(pin);
+    setIsEditImageModalOpen(true);
+  };
+
+  const handleCloseEditImageModal = () => {
+    setPinToEditImage(null);
+    setIsEditImageModalOpen(false);
+  };
+
   const handleCloseModal = () => setSelectedPin(null)
   const toggleConnectionMode = () => {
     setIsConnecting(prev => !prev)
@@ -323,7 +336,7 @@ const handleConversionSuccess = (pinId: string) => {
         >
           <ConnectionsLayer connections={connections} pinsMap={pinsMap} />
           {pins.map(pin => (
-            <Pin key={pin.id} pin={pin} onSelectPin={handlePinClick} isSelectedAsStart={startPin?.id === pin.id} onDelete={handleDeletePin} />
+            <Pin key={pin.id} pin={pin} onSelectPin={handlePinClick} isSelectedAsStart={startPin?.id === pin.id} onDelete={handleDeletePin} onEditImage={handleOpenEditImageModal} />
           ))}
         </div>
       </DndContext>
@@ -337,6 +350,7 @@ const handleConversionSuccess = (pinId: string) => {
         onUploadComplete={handleUploadComplete}
       />
       <PinDetailModal pin={selectedPin} userId={user.id} onClose={handleCloseModal} onConversionSuccess={handleConversionSuccess} />
+      <EditPinImageModal pin={pinToEditImage} isOpen={isEditImageModalOpen} onClose={handleCloseEditImageModal} />
 
         {isTutorialActive && (
           <>

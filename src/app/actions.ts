@@ -893,6 +893,119 @@ export async function updatePinPosition(pinId: string, position: { x: number, y:
   return { success: true }
 }
 
+export async function regeneratePinImage(pinId: string, prompt: string, instructionProfileId: string) {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'User not authenticated' };
+
+    // --- USAGE LIMIT LOGIC ---
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role, image_generations_count')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return { error: 'Could not verify usage limits.' };
+    }
+
+    if (profile.role !== 'admin' && profile.image_generations_count >= IMAGE_GENERATION_LIMIT) {
+      return { error: 'Image generation limit reached for this demo.', limitExceeded: true };
+    }
+    // --- END USAGE LIMIT LOGIC ---
+
+    try {
+        // 1. Get the instruction profile for the AI
+        const { data: instructionProfile, error: instructionProfileError } = await supabase
+            .from('model_instructions')
+            .select('instructions')
+            .eq('id', instructionProfileId)
+            .eq('user_id', user.id)
+            .single();
+
+        if (instructionProfileError || !instructionProfile) {
+            return { error: 'Could not find the specified instruction profile.' };
+        }
+
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+            return { error: 'GEMINI_API_KEY is not configured on the server.' };
+        }
+
+        // 2. Generate the image using the Google AI SDK
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-image-preview" });
+
+        const fullPrompt = `${instructionProfile.instructions}\n\nSubject: ${prompt}`;
+        const result = await model.generateContent(fullPrompt);
+        const response = result.response;
+        const imagePart = response.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
+
+        if (!imagePart || !imagePart.inlineData?.data) {
+            return { error: "The AI did not return an image. Please try a different prompt." };
+        }
+
+        const base64ImageData = imagePart.inlineData.data;
+        const imageBuffer = Buffer.from(base64ImageData, 'base64');
+        const mimeType = imagePart.inlineData.mimeType || 'image/png';
+
+        // 3. Upload the new image
+        const adminSupabase = createSupabaseAdminClient();
+        const fileName = `${user.id}/${Date.now()}-ai-regenerated.png`;
+        const { error: uploadError } = await adminSupabase.storage
+            .from('images')
+            .upload(fileName, imageBuffer, { contentType: mimeType });
+
+        if (uploadError) {
+            return { error: `Failed to upload generated image: ${uploadError.message}` };
+        }
+
+        // 4. Get the public URL for the new image
+        const { data: { publicUrl } } = supabase.storage.from('images').getPublicUrl(fileName);
+        if (!publicUrl) {
+            return { error: 'Could not get public URL for the uploaded image.' };
+        }
+
+        // 5. Fetch the old pin to get the old image URL
+        const { data: oldPin, error: oldPinError } = await supabase
+            .from('pins')
+            .select('image_url')
+            .eq('id', pinId)
+            .single();
+
+        if (oldPinError || !oldPin) {
+            return { error: 'Could not find the original pin.' };
+        }
+
+        // 6. Update the pin with the new image URL
+        const { data: updatedPin, error: pinError } = await supabase
+            .from('pins')
+            .update({ image_url: publicUrl })
+            .eq('id', pinId)
+            .select()
+            .single();
+
+        if (pinError) {
+            return { error: `Failed to update pin: ${pinError.message}` };
+        }
+
+        // 7. On successful update, increment the counter
+        await supabase.rpc('increment_image_count', { user_id_param: user.id });
+
+        // 8. Delete the old image from storage
+        const oldImageUrl = oldPin.image_url;
+        const oldFilePath = oldImageUrl.substring(oldImageUrl.lastIndexOf('/') + 1);
+        await adminSupabase.storage.from('images').remove([`${user.id}/${oldFilePath}`]);
+
+        revalidatePath('/');
+        return { success: true, data: updatedPin };
+
+    } catch (error: any) {
+        console.error("Regenerate pin image error:", error);
+        return { error: `An unexpected error occurred: ${error.message}` };
+    }
+}
+
 export async function createConnection(startPinId: string, endPinId: string) {
     const supabase = createClient()
     const { data: authData, error: authError } = await supabase.auth.getUser()

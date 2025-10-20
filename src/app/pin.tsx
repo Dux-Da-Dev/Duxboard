@@ -15,11 +15,12 @@ interface PinProps {
   onSelectPin: (pin: PinType) => void
   isSelectedAsStart: boolean
   onDelete: (pinId: string) => void
+  onEditImage: (pin: PinType) => void
 }
 
 const DEFAULT_WIDTH = 192; // Corresponds to w-48
 
-function Pin({ pin, onSelectPin, isSelectedAsStart, onDelete }: PinProps) {
+function Pin({ pin, onSelectPin, isSelectedAsStart, onDelete, onEditImage }: PinProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: pin.id,
   })
@@ -51,6 +52,12 @@ function Pin({ pin, onSelectPin, isSelectedAsStart, onDelete }: PinProps) {
   const handleClick = () => {
     if (pin.isLoading) return;
     onSelectPin(pin)
+  }
+
+  const handleImageClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (pin.isLoading) return;
+    onEditImage(pin);
   }
 
   const onResizeStop: ResizableBoxProps['onResizeStop'] = useCallback(async (_e: React.SyntheticEvent, data: { size: { width: number, height: number }}) => {
@@ -92,7 +99,6 @@ function Pin({ pin, onSelectPin, isSelectedAsStart, onDelete }: PinProps) {
       style={style}
       className="absolute group"
       {...attributes}
-      onClick={handleClick}
       data-pin-id={pin.id} // Add this line
     >
       <ResizableBox
@@ -107,8 +113,17 @@ function Pin({ pin, onSelectPin, isSelectedAsStart, onDelete }: PinProps) {
         <div
           {...listeners}
           className={`handle cursor-grab active:cursor-grabbing rounded-lg ${selectionClass} transition-all w-full h-full`}
+          onClick={handleClick}
         >
-          <Image src={pin.image_url} alt="pin" fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" className="w-full h-full object-cover rounded-lg shadow-xl pointer-events-none" onLoad={onImageLoad} />
+          <Image
+            src={pin.image_url}
+            alt="pin"
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className="w-full h-full object-cover rounded-lg shadow-xl"
+            onLoad={onImageLoad}
+            onClick={handleImageClick}
+          />
         </div>
       </ResizableBox>
       <button
