@@ -15,6 +15,7 @@
     import JobList from './job-list';
 import { useTutorial } from './tutorial-provider'
 import TutorialHighlight from './tutorial-highlight'
+import EditPinImageModal from './edit-pin-image-modal'
 
     type PinType = Database['public']['Tables']['pins']['Row']
     type FileType = Database['public']['Tables']['files']['Row']
@@ -41,6 +42,7 @@ type ProfileType = Database['public']['Tables']['profiles']['Row']
       const [isProcessing, setIsProcessing] = useState(false);
       const [isAIPromptOpen, setIsAIPromptOpen] = useState(false)
       const [isAttachmentModalOpen, setisAttachmentModalOpen] = useState(false);
+      const [isEditImageModalOpen, setIsEditImageModalOpen] = useState(false);
       const [attachmentPrompt, setAttachmentPrompt] = useState('');
       const [hasStartedTypingAttachment, setHasStartedTypingAttachment] = useState(false);
       const [profiles, setProfiles] = useState<InstructionProfile[]>([])
@@ -399,7 +401,7 @@ const handleSubBoardAction = async () => {
                     {pin && (
                       <div className="grid md:grid-cols-2 gap-6 mt-4 flex-1 overflow-y-auto">
                         <div className="md:col-span-1 flex flex-col gap-4">
-                          <Image src={pin.image_url} alt="pin content" width={500} height={500} className="w-full h-auto rounded-lg" />
+                          <Image src={pin.image_url} alt="pin content" width={500} height={500} className="w-full h-auto rounded-lg cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setIsEditImageModalOpen(true)} />
                           <div>
                             <h4 className="font-bold mb-2 dark:text-white">Attachments</h4>
                             <JobList pinId={pin.id} />
@@ -446,6 +448,13 @@ const handleSubBoardAction = async () => {
               </div>
             </div>
           </Dialog>
+          {isEditImageModalOpen && (
+            <EditPinImageModal
+              pin={pin}
+              isOpen={isEditImageModalOpen}
+              onClose={() => setIsEditImageModalOpen(false)}
+            />
+          )}
         </Transition>
       )
     }
