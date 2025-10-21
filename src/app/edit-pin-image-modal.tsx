@@ -70,7 +70,7 @@ export default function EditPinImageModal({ pin, isOpen, onClose }: EditPinImage
         onClose={() => setLimitModalOpen(false)}
       />
       <Transition appear show={isOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={onClose}>
+        <Dialog as="div" className="relative z-[110]" onClose={onClose}>
           <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
             <div className="fixed inset-0 bg-black/30" />
           </Transition.Child>

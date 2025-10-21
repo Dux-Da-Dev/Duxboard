@@ -1008,8 +1008,12 @@ export async function regeneratePinImageWithImageInput(pinId: string, imageUrl: 
 
         // 9. Delete the old image from storage
         const oldImageUrl = oldPin.image_url;
-        const oldFilePath = new URL(oldImageUrl).pathname.split('/').slice(3).join('/');
-        await adminSupabase.storage.from('images').remove([oldFilePath]);
+        const urlParts = new URL(oldImageUrl).pathname.split('/');
+        const bucketNameIndex = urlParts.indexOf('images');
+        if (bucketNameIndex !== -1) {
+            const oldFilePath = urlParts.slice(bucketNameIndex + 1).join('/');
+            await adminSupabase.storage.from('images').remove([oldFilePath]);
+        }
 
         revalidatePath('/');
         return { success: true, data: updatedPin };
